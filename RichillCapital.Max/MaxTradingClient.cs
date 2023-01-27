@@ -9,11 +9,6 @@
 
         #region WebSocket API
 
-        public void Authenticate()
-        {
-
-        }
-
         #endregion
     }
 }

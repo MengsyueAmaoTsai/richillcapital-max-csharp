@@ -26,17 +26,8 @@ namespace RichillCapital.Max
         {
             _apiKey = apiKey;
             _secretKey = secretKey;
-
-            _httpClient = new HttpClient
-            {
-                BaseAddress = new Uri(REST_URL),
-            };
-
-            _socketClient = new WebSocketClient(WEBSOCKET_URL);
-            _socketClient.OnOpen += OnWebSocketOpen;
-            _socketClient.OnClose += OnWebSocketClose;
-            _socketClient.OnError += OnWebSocketError;
-            _socketClient.OnMessage += OnWebSocketMessage;
+            _httpClient = CreateHttpClient(REST_URL);
+            _socketClient = CreateWebSocket(WEBSOCKET_URL);
         }
 
         #region REST API Public
@@ -74,8 +65,7 @@ namespace RichillCapital.Max
         public async Task GetUserProfileAsync()
         {
             string endpoint = "/api/v2/members/me";
-
-            int nonce = GetNonce();
+            long nonce = GetNonce();
 
             var parameters = new Dictionary<string, object>
             {
@@ -87,19 +77,20 @@ namespace RichillCapital.Max
                 { "path", endpoint }
             };
 
-            var encodedPayload = Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(parametersToSign)));
-            var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_secretKey));
-            var signatureBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(encodedPayload));
-            var signature = BitConverter.ToString(signatureBytes).Replace("-", "").ToLower();
+            string encodedPayload = Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(parametersToSign)));
+            HMACSHA256 hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_secretKey));
+            byte[] signatureBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(encodedPayload));
+            string signature = BitConverter.ToString(signatureBytes).Replace("-", "").ToLower();
 
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, endpoint);
+            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, $"{endpoint}");
             request.Headers.Add("X-MAX-ACCESSKEY", _apiKey);
             request.Headers.Add("X-MAX-PAYLOAD", encodedPayload);
             request.Headers.Add("X-MAX-SIGNATURE", signature);
 
             HttpResponseMessage response = await _httpClient.SendAsync(request);
-            JObject json = JObject.Parse(await response.Content.ReadAsStringAsync());
-            Console.WriteLine($"{json.ToString()}");
+            Console.WriteLine(await response.Content.ReadAsStringAsync());
+            //JObject json = JObject.Parse(await response.Content.ReadAsStringAsync());
+            //Console.WriteLine($"{json.ToString()}");
         }
 
         #endregion
@@ -124,9 +115,39 @@ namespace RichillCapital.Max
 
         #endregion
 
-        protected int GetNonce()
+        /// <summary>
+        /// Get nonce.
+        /// </summary>
+        /// <returns></returns>
+        protected long GetNonce() => Convert.ToInt64((DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0)).TotalMilliseconds);
+
+        /// <summary>
+        /// Create a http client.
+        /// </summary>
+        /// <param name="baseAddress"></param>
+        /// <returns></returns>
+        protected HttpClient CreateHttpClient(string baseAddress)
         {
-            return (int)(DateTime.Now - new DateTime(1970, 1, 1)).TotalMilliseconds;
+            HttpClient client = new HttpClient
+            {
+                BaseAddress = new Uri(baseAddress),
+            };
+            return client;
+        }
+
+        /// <summary>
+        /// Create a websocket client.
+        /// </summary>
+        /// <param name="url"></param>
+        /// <returns></returns>
+        protected WebSocketClient CreateWebSocket(string url)
+        {
+            WebSocketClient client = new WebSocketClient(url);
+            client.OnOpen += OnWebSocketOpen;
+            client.OnClose += OnWebSocketClose;
+            client.OnError += OnWebSocketError;
+            client.OnMessage += OnWebSocketMessage;
+            return client;
         }
     }
 }

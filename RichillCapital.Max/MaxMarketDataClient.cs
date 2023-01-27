@@ -15,7 +15,7 @@ namespace RichillCapital.Max
         #region Market Data REST API Public
         
         /// <summary>
-        /// Get OHLC of a specific market
+        /// Get OHLC of a specific market.
         /// </summary>
         /// <param name="market"></param>
         /// <param name="period"></param>
